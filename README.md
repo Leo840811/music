@@ -3,7 +3,8 @@
 ### 功能
 將youtube播放清單下載，mp4轉成wav，切割或抽取30s音檔
 ### 使用方式
-更改播放清單網址 p = Playlist('清單網址')
+更改播放清單網址 \
+p = Playlist('清單網址')
 
 ## genrerecognition.ipynb
 ### 功能
