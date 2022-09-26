@@ -1,0 +1,237 @@
+Setup Spark 3.x on Standalone Cluster
+
+
+=================================================================
+0) Make sure all nodes date/time is synchronized (using time server)
+   date
+   
+   Make sure System only have python3 and pip3   (no python2)
+   Newest setuptools
+=================================================================
+Install OpenJDK
+   
+1) Switch to root
+   sudo -i
+
+2) Install OpenJDK
+   apt install openjdk-8-jdk
+   
+3) Check Java version
+   java -version
+   javac -version
+   update-alternatives --display java
+   
+4) Set JAVA_HOME env. variable
+   nano /etc/profile.d/openjdk.sh
+      export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+	  
+   # logout/login to apply env. variable
+   or
+   # load configuration immediately
+   source /etc/profile.d/openjdk.sh
+
+
+=================================================================
+Setup DNS or /etc/hosts for name resolution
+
+1) nano /etc/hosts
+   127.0.0.1 localhost
+   192.168.88.900 bdse900.example.com bdse900
+   192.168.88.901 bdse901.example.com bdse901
+   192.168.88.902 bdse902.example.com bdse902
+   
+
+=================================================================
+Create hadoop account
+
+1) Switch to root 
+   sudo -i
+   
+2) Create user account
+   adduser hadoop
+   
+3) Check system info
+   grep 'hadoop' /etc/passwd /etc/group /etc/shadow
+   ls -l /home
+ 
+
+=================================================================
+Setup Password-less login
+
+1) Switch to hadoop user
+   su - hadoop
+   cd
+   pwd
+   
+2) Configuring SSH password-less login 
+   ssh-keygen -t rsa 
+      Enter file in which to save the key: [Return]
+	  Enter passphrase (empty for no passphrase): [Return]
+	  Enter same passphrase again: [Return]
+	  
+   ls -l .ssh 
+   
+   (copy public key to authorized_keys file)
+   ssh-copy-id hadoop@localhost
+      
+3) Copy public key to other servers
+   ssh-copy-id hadoop@bdse900.example.com
+   ssh-copy-id hadoop@bdse901.example.com
+   ssh-copy-id hadoop@bdse902.example.com
+      
+4) Test password-less login to other servers
+   ssh hadoop@bdse900.example.com hostname
+   ssh hadoop@bdse901.example.com hostname
+   ssh hadoop@bdse902.example.com hostname
+
+5) Check authorized_keys file
+   cd
+   cat .ssh/authorized_keys 
+
+
+=================================================================
+Install and configure Spark
+
+1) Download Apache Spark 
+   cd 
+   wget http://apache.stu.edu.tw/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
+   or
+   wget http://ftp.tc.edu.tw/pub/Apache/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
+
+2) extract spark tar file to /usr/local, set owner and group to hadoop user
+   tar -xvf spark-3.3.0-bin-hadoop3.tgz -C /usr/local
+   mv /usr/local/spark-3.3.0-bin-hadoop3 /usr/local/spark
+   chown -R hadoop:hadoop /usr/local/spark
+   exit
+
+3) Switch to hadoop user
+   su - hadoop   
+
+4) Set Spark environment variables (on all nodes)
+    nano ~/.bashrc
+    
+	# Set SPARK_HOME
+    export SPARK_HOME=/usr/local/spark
+	
+	# Set Spark path
+    export PATH=$SPARK_HOME/bin:$PATH
+ 
+	source ~/.bashrc
+	env
+	
+5) Configure spark-env.sh
+   
+   cd /usr/local/spark/conf
+   cp spark-env.sh.template spark-env.sh
+   
+   nano spark-env.sh
+    # export SPARK_MASTER_HOST="192.168.56.90"  (old version)
+    export SPARK_MASTER_HOST="bdse900.example.com"
+    export PYSPARK_PYTHON="/usr/bin/python3"
+    # export HADOOP_CONF_DIR="/usr/local/hadoop/etc/hadoop"
+
+6) For Java 11, -Dio.netty.tryReflectionSetAccessible=true is required additionally 
+   for Apache Arrow library. This prevents java.lang.UnsupportedOperationException: 
+   sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available 
+   when Apache Arrow uses Netty internally
+	
+   cd /usr/local/spark/conf
+   cp spark-defaults.conf.template spark-defaults.conf
+   
+   nano spark-defaults.conf
+    spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+    spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+   
+7) Configure workers file
+
+   cd /usr/local/spark/conf
+   cp workers.template workers
+   
+   nano workers
+       bdse901.example.com
+       bdse902.example.com
+
+8) Install required python packages
+   pip3 install pandas
+   pip3 install pyarrow
+
+   # Add env variable to spark-env.sh
+   export PYARROW_IGNORE_TIMEZONE=1   
+   
+9) MLlib Linear Algebra Acceleration
+   # https://spark.apache.org/docs/latest/ml-linalg-guide.html
+   apt install libopenblas-base
+  
+10) (Optional) For Using hadoop, setup Hadoop native library path
+    # Spark use default hadoop library
+    # Setup hadoop native library
+	export HADOOP_HOME=/usr/local/hadoop
+    export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+    export HADOOP_OPTS="$HADOOP_OPTS -Djava.library.path=$HADOOP_HOME/lib/native" 
+	
+	source .bashrc
+  
+
+=================================================================
+Start and Test Spark cluter
+
+1) Start Spark Cluster (at master node)
+  
+   cd $SPARK_HOME
+   sbin/start-master.sh
+   jps
+   
+   sbin/start-workers.sh
+   
+2) Check on all workers
+  
+   jps
+   
+2.5) Check Master Web UI
+     http://<master>:8080
+
+3) Execute a Pi example 
+   
+   cd $SPARK_HOME
+	
+   ./bin/spark-submit \
+   --master spark://bdse900.example.com:7077 \
+   --driver-memory 1G \
+   --driver-cores 1 \
+   --executor-memory 1G \
+   --executor-cores 1 \
+   --total-executor-cores 2 \
+   examples/src/main/python/pi.py 10
+    
+   http://bdse900.example.com:8080  (check running appliction)    
+   
+	   
+2) pyspark shell example
+
+   cd $SPARK_HOME
+   ./bin/pyspark --master spark://bdse900.example.com:7077 \
+   --name snoopy \
+   --driver-memory 1G \
+   --driver-cores 1 \
+   --executor-memory 1G \
+   --executor-cores 1 \
+   --total-executor-cores 2 \
+   --deploy-mode client  
+   
+# --num-executors 2 : for Spark on YARN
+
+   
+=================================================================   
+Setup default spark logging level
+
+1) Edit log4j.properties
+   cd $SPRK_HOME
+   cp log4j2.properties.template log4j2.properties
+   nano log4j.properties
+   
+   rootLogger.level = warn
+   # Valid log levels include: ALL, DEBUG, ERROR, FATAL, INFO, OFF, TRACE, WARN
+
+
+https://stackoverflow.com/questions/40608412/how-can-set-the-default-spark-logging-level
+
