@@ -35,9 +35,9 @@ def preprocessing(file_name):
     # for n in range(1,2):
     # for n in os.listdir(dir):
         # 給mp4檔案來源名稱和路徑
-        mp4_file = mp4_dir+'/%s%s.mp4' %(file_name,n)
+        mp4_file = mp4_dir+'/%s.mp4' %(file_name)
         # 給wav檔案輸出名稱和路徑
-        wav_file = mp4_outputpath+'/%s%s.wav' %(file_name,n)
+        wav_file = mp4_outputpath+'/%s.wav' %(file_name)
         
         videoclip = VideoFileClip(mp4_file)   # 先匯入影檔
         audioclip = videoclip.audio           # 從影檔取出音檔
@@ -1325,6 +1325,6 @@ def preprocessing(file_name):
     
     feature_set3s.to_csv(f'{dir3s}/{file_name}3s.csv')
                 
-file_name = 'username'              
+file_name = sys.argv[1]              
 preprocessing(file_name)                    
                     
