@@ -50,19 +50,19 @@ def predict_ans(file_name):
     #       return predans
         print(predans)
 
-    with gzip.open(f'{modeldir}/knntest.pgz', 'r') as xgbm2:
-        knn = pickle.load(xgbm2)
-        pred = knn.predict(X)
-        df_pred = pd.DataFrame(pred)
-        df_pred = df_pred.replace([0,1,2,3,4,5,6,7,8,9],['blues','classical','country','disco','hiphop','jazz','metal','pop'
-        ,'reggae','rock'])
-        df_pred['曲風'] = df_pred[0]
-        predans = df_pred.groupby(['曲風']).size().reset_index(name='次數')
-        predans['機率'] = predans['次數']/ predans['次數'].sum()
-        predans = predans.sort_values(by='機率',ascending=False)
-        predans = predans.drop(['次數'], axis=1)
-    #       return predans
-        print(predans)
+#     with gzip.open(f'{modeldir}/knntest.pgz', 'r') as xgbm2:
+#         knn = pickle.load(xgbm2)
+#         pred = knn.predict(X)
+#         df_pred = pd.DataFrame(pred)
+#         df_pred = df_pred.replace([0,1,2,3,4,5,6,7,8,9],['blues','classical','country','disco','hiphop','jazz','metal','pop'
+#         ,'reggae','rock'])
+#         df_pred['曲風'] = df_pred[0]
+#         predans = df_pred.groupby(['曲風']).size().reset_index(name='次數')
+#         predans['機率'] = predans['次數']/ predans['次數'].sum()
+#         predans = predans.sort_values(by='機率',ascending=False)
+#         predans = predans.drop(['次數'], axis=1)
+#     #       return predans
+#         print(predans)
 
     
 file_name = sys.argv[1]    
